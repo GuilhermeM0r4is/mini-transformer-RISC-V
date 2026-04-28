@@ -25,31 +25,31 @@ exit:
 #   a1 = index of the largest element
 # ===========================================================================
 argmax:
-    blez a2, error #Caso em que o vetor tem 0 elementos (invalido)
-    lw t0, 0(a1) #Registo que contem o maior elemento
-    li t1, 0 #Registo que contem o indice do maior elemento
-    li t2, 1 #Registo que contem o valor do contador
+    blez a2, error #Case where the number of elements is 0 or less (invalid)
+    lw t0, 0(a1) #Register containing the maximum value
+    li t1, 0 #Register containing the index of the maximum value
+    li t2, 1 #Register containing the loop counter's value
     
 looping:
-    beq t2, a2, looped #Se verdadeiro, todos os elementos ja foram avaliados
-    slli t3, t2, 2 #Calcula o offset para atingir o proximo elemento (mult por 4)
-    add t4, t3, a1 #Adiciona o offset a posicao inicial do ponteiro
-    lw t5, 0(t4) #Coloca o novo elemento a avaliar dentro de t5
-    ble t5,t0, reloop #Se o novo elemento é inferior ou igual ao maior, termina este loop
-    mv t0, t5 #Atualiza o elemento maior para o valor contido em t5
-    mv t1, t2 #Atualiza o indice para aquele do maior elemento no vetor
+    beq t2, a2, looped #If true, all elements have already been tested
+    slli t3, t2, 2 #Calculate the offset to reach the next element (mult by 4)
+    add t4, t3, a1 #Adds the offset to the pointer's initial position
+    lw t5, 0(t4) #Places the new element to compare inside t5
+    ble t5,t0, reloop #If new element is inferior or equal to current maximum, stop this loop
+    mv t0, t5 #Updates the maximum value to the one contained in t5 (new maximum)
+    mv t1, t2 #Updates the contained index to that of the current maximum
     
 reloop:
-    addi t2, t2, 1 #Incrementa o contador de ciclos por 1
-    j looping #Inicia um novo ciclo para avaliar o proximo elemento
+    addi t2, t2, 1 #Increment the loop counter by 1
+    j looping #Start a new cicle to test the next element
     
 looped:
-    mv a1, t1 #Atualiza o valor de retorno para o indice do maior elemento
-    li a0, 0 #Codigo de sucesso
+    mv a1, t1 #Updates the return value to maximum's index
+    li a0, 0 #Success code
     ret
 
 error:
-    li a0, 50 #Codigo de argumento invalido
+    li a0, 50 #Invalid argument code
     ret
 
 argmax_end:
