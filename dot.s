@@ -31,8 +31,8 @@ dot:
     blt a3, t0, invalid_size    # invalid size a3 < 1
     li t0, 0    # sums of all the values, used to sum up different mults
 
-    slli t1, a3, 2    # mover os 4 bits necessários para ver o último valor
-    add t1, t1, a1    # limite total que podemos ter
+    slli t1, a3, 2    # moving the necessary 4 bits to the last value
+    add t1, t1, a1    # total limit we can have
     
 dot_cicle:
     lw t2, 0(a1)    # loads the first value of the first vector
