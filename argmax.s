@@ -54,6 +54,3 @@ looped:
 error:
     li a0, 50   # Invalid argument code
     ret
-
-argmax_end:
-  jr ra               # return to the caller
