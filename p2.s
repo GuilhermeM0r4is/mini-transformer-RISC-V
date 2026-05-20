@@ -237,7 +237,43 @@ end_parsing:
 # (in)     a2: address to input buffer
 # (in)     a3: address to vocabulary buffer
 tokens_to_indices:
-    # TODO
+    li t0, 0 # Tracks number of tokens in input
+    addi sp, sp, -4
+    sw a0, 0(sp) # Store original input indices vector address
+index_finder:
+    lbu t2, 0(a2) # Store current input character for evaluation (catch empty inputs)
+    beqz t2, end_tokenstoindices # Check if character is EOF
+    mv t3, a3 # (re)Set vocabulary buffer pointer to the start of buffer
+    li t1, 0 # Line Counter
+    mv t6, a2 # Store pointer to the BEGINNING of current word
+matching_char:
+    lbu t2, 0(a2) # Store input character
+    lbu t4, 0(t3) # Store vocab character
+    li t5, 10 # Newline ASCII value
+    bne t4, t2, not_matched # If the characters are the same, continue checking word
+    beq t5, t2, found_word
+    addi t3, t3, 1 # Move to next vocabulary character
+    addi a2, a2, 1 # Move to next input character
+    j matching_char # Run the check again  
+not_matched:
+    addi t1, t1, 1 # Increment line counter by 1, because moving to next vocab word
+    mv a2, t6 # Go back to beginning of current input word
+skip_word:
+    addi t3, t3, 1 # Move to next char, so t3 always points 1 after newline, if found
+    beq t4, t5, matching_char # Check if char 1 before vocab pointer is newline
+    lbu t4, 0(t3) # Test following character
+    j skip_word
+found_word:
+    sw t1, 0(a0) # Store the input word's line index in the vocabulary file
+    addi t0, t0, 1 # Found one word, so increment token counter by 1
+    addi a0, a0, 4 # Move to next input indice word to fill
+    addi a2, a2, 1 # Move past newline to be at next word's first character
+    j index_finder
+end_tokenstoindices:
+    lw a0, 0(sp) # Restore a0's original address (start of input indices vector)
+    addi sp, sp, 4 # Free allocated stack space
+    mv a1, t0 # Store the number of tokens found inside a1 for returning purposes
+    jr ra
 
 # (in/out) a0: address of the output matrix to fill (int*)
 # (in)     a1: address of the vocabulary embeddings matrix (int*)
