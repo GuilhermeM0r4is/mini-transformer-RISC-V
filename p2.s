@@ -137,10 +137,15 @@ main:
     ###########################################################################
     # TODO
 
-    ###########################################################################
     # Compute scores for the last input token
-    ###########################################################################
-    # TODO
+    la a0, SCORES_VECTOR
+    la a1, Q_MATRIX
+    la a2, K_MATRIX
+    la a3, INPUT_TOTAL_TOKENS
+    lw a3, 0(a3)        # Loads the value from the address
+    li a4, CONST_DIMENSION
+    addi a5, a3, -1     # Remove one to use it for a5
+    jal ra, compute_scores
 
     ###########################################################################
     # Get the highest score index using argmax
@@ -168,22 +173,18 @@ main:
 # (in/out) a1: destination buffer
 # (in)     a2: maximum number of bytes to read
 read_file:
-    mv t1, a1 # Store the destination buffer for future use
-    li a1, 0 # No special flags value for Open system call
-    
-    li a7, 1024 # Open syscall
-    ecall       #a0= file descriptor
-    
-    mv t0, a0 # Store the file descriptor for future use (next ecall would destroy it)
-    li a7, 63 # Read system call
-    mv a1, t1 # Restore the destination buffer value to a1 for Read syscall
-    ecall     # a0= number of bytes read
-    
-    mv a0, t0 # Restore the file descriptor to a0 for Close system call
-    
-    li a7, 57 # Close system call
-    ecall     # a0 is unchanged after this operation
-    jr ra     # Return to the caller
+    mv t1, a1          # Store the destination buffer for future use
+    li a1, 0           # No special flags value for Open system call
+    li a7, 1024        # Open syscall
+    ecall              #a0= file descriptor
+    mv t0, a0          # Store the file descriptor for future use (next ecall would destroy it)
+    li a7, 63          # Read system call
+    mv a1, t1          # Restore the destination buffer value to a1 for Read syscall
+    ecall              # a0= number of bytes read
+    mv a0, t0          # Restore the file descriptor to a0 for Close system call
+    li a7, 57          # Close system call
+    ecall              # a0 is unchanged after this operation
+    jr ra              # Return to the caller
 
 # Assumes the matrix is stored in the buffer as space-separated integers.
 # Assumes columns are separated by 1 space (' '), and rows by 1 newline ('\n').
@@ -192,57 +193,42 @@ read_file:
 # (out)    a1: number of rows in the matrix (int)
 # (in)     a1: address of the buffer containing the matrix data (char*)
 parse_matrix_buffer: 
-    mv t0, a1 # Store the address of the destination buffer
-    mv t1, a0 # Store the address of the buffer containing the matrix data
-    
-    li t3, 0 # Row counter
-    li t4, 0 # Number accumulator
-    li t6, 1 # "Is negative number" flag (1 = false, -1 = true)
-
+    mv t0, a1          # Store the address of the destination buffer
+    mv t1, a0          # Store the address of the buffer containing the matrix data
+    li t3, 0           # Row counter
+    li t4, 0           # Number accumulator
+    li t6, 1           # "Is negative number" flag (1 = false, -1 = true)
 parsing_loop:
-    lbu t2, 0(t1) # Extract the character's ASCII value
-    addi t1, t1, 1 # Move to the next character to parse (byte by byte)
-    
+    lbu t2, 0(t1)      # Extract the character's ASCII value
+    addi t1, t1, 1     # Move to the next character to parse (byte by byte)
     beqz t2, end_parsing # If character is EOF (=0), all file content has been read
-    
-    li t5, 32 # Space ASCII value
+    li t5, 32          # Space ASCII value
     beq t5, t2, acc_number # If character is a space
-    
-    li t5, 10 # Newline ASCII value
+    li t5, 10          # Newline ASCII value
     beq t5, t2, next_line # If character is a newline
-    
-    li t5, 45 # If character is a hyphen (minus sign)
+    li t5, 45          # If character is a hyphen (minus sign)
     beq t5, t2, negative_flag
-    
     # If none of the previous branches were triggered, then the character is a digit
-    addi t2, t2, -48 # Subtract character "0" from the digit to obtain the int value
-    
+    addi t2, t2, -48   # Subtract character "0" from the digit to obtain the int value
     li t5, 10 
-    mul t4, t4, t5 # Make space for the new digit (lowest base,since read right > left)
-    add t4, t4, t2 # Add new digit to the rest of the number
-    
+    mul t4, t4, t5     # Make space for the new digit (lowest base,since read right > left)
+    add t4, t4, t2     # Add new digit to the rest of the number
     j parsing_loop
-
 next_line:
-    addi t3, t3, 1 # Moving to next row, so increment row counter by one
+    addi t3, t3, 1     # Moving to next row, so increment row counter by one
     # Falling into the acc_number label is intentional, so as to not repeat code
-    
 acc_number:
-    mul t4, t4, t6 # Negate value if flag is true, does nothing otherwise
-    li t6, 1 # Reset the "negative number" flag
-    
-    sw t4, 0(t0) # Store the number that's been formed in destination buffer
-    addi t0, t0, 4 # Move pointer to the next word in destination buffer
-    
-    li t4, 0 # Reset the number accumulator
+    mul t4, t4, t6     # Negate value if flag is true, does nothing otherwise
+    li t6, 1           # Reset the "negative number" flag
+    sw t4, 0(t0)       # Store the number that's been formed in destination buffer
+    addi t0, t0, 4     # Move pointer to the next word in destination buffer
+    li t4, 0           # Reset the number accumulator
     j parsing_loop
-    
 negative_flag:
-    li t6, -1 # Set "negative number" flag as true
+    li t6, -1          # Set "negative number" flag as true
     j parsing_loop
-    
 end_parsing:
-    mv a1, t3 # Store the number of rows in the matrix inside a1
+    mv a1, t3          # Store the number of rows in the matrix inside a1
     ret
 
 # Converts the input tokens into their corresponding indices in the vocabulary.
@@ -277,7 +263,53 @@ matrix_multiply:
 # (in)     a4: #columns of Q and K (int)
 # (in)     a5: target token index for which we want to compute the score (int)
 compute_scores:
-    # TODO
+    addi sp, sp, -32    # Add 8 positions to the stock
+    sw s0, 0(sp)        # Stores the different s0-s6 into the stock to not lose them
+    sw s1, 4(sp)
+    sw s2, 8(sp)
+    sw s3, 12(sp)
+    sw s4, 16(sp)
+    sw s5, 20(sp)
+    sw ra, 24(sp)
+    mv s0, a0           # Moves the respective values to the s0-s6, to not have
+    mv s1, a1           # them being overwritten in the dot call
+    mv s2, a2
+    mv s3, a3
+    mv s4, a4
+    mv s5, a5
+    mul t0, s4, s5      # Lines * Collumns to get the value for the adress
+    slli t0, t0, 2      # Get the fixed line address -> fixed Q adress
+    add s1, s1, t0      # Move the value for the adress to use it
+    li t0, 0            # j value to be used for the K matrix adress
+compute_scores_loop:
+    beq t0, s3, compute_scores_success  # Assures the cycle only runs until it reaches,
+                                      # the total number of lines (s3)
+    mul t1, s4, t0      # Collumns * J
+    slli t1, t1, 2      # Moves to get the address using shift left imm
+    add t2, s2, t1      # Adds the value to get the right position
+    mv a1, s1        
+    mv a2, t2           # Uses a1-a3 on dot auxiliar function by moving the values
+    mv a3, s4    
+    jal ra, dot         # Jumps to dot with a caller to come back here after finishing
+    bnez a0, compute_scores_end  # If != 0, then we have error overflow, and ends
+    slli t3, t0, 2      # Moves the 4 bytes for each j value we have to use it for the index
+                        # as we can't have the "0" in sw changing
+    add t3, t3, s0      # Adds the t3 to the output scores vector index adress
+    sw a1, 0(t3)        # Stores the value into the scores vector
+    addi t0, t0, 1      # Continues the cycle j++
+    j compute_scores_loop
+compute_scores_success:
+    li a0, 0            # Assures the return code is 0
+compute_scores_end:
+    lw s0, 0(sp)        # Loads back all the values stores in the stock and
+    lw s1, 4(sp)        # uses them to be stored and not lost
+    lw s2, 8(sp)
+    lw s3, 12(sp)
+    lw s4, 16(sp)
+    lw s5, 20(sp)
+    lw ra, 24(sp)       # With the return address back on, we can call ret 
+    addi sp, sp, 32     # and clear the pile/stock clearing the memory
+    ret
 
 # (out) a0: address of the selected vector (int*)
 # (in)  a1: address of matrix (int*)
@@ -392,7 +424,7 @@ argmax_end:
     lw ra, 0(sp)                                    # Restore return address
     addi sp, sp, 4                                  # Deallocate stack space
     ret                                             # return to the caller
-
+    
 exit_with_code:
     li a7, CONST_SYSCALL_EXIT2
     ecall
