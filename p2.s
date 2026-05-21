@@ -1,5 +1,5 @@
 ###########################################################################
-# Upper bound constants for static memory reservation
+# UPPER BOUND CONSTANTS FOR STATIC MEMORY RESERVATION
 ###########################################################################
 .equ CONST_DIMENSION 4
 .equ CONST_BUFFER_SIZE 1024
@@ -7,7 +7,7 @@
 .equ CONST_MAX_INPUT_TOKENS 10
 
 ###########################################################################
-# System call constants
+# SYSTEM CALL CONSTANTS
 ###########################################################################
 .equ CONST_SYSCALL_PRINT_INT 1
 .equ CONST_SYSCALL_PRINT_STRING 4
@@ -20,7 +20,7 @@
 .equ CONST_SYSCALL_WRITE 64
 
 ###########################################################################
-# ASCII character constants
+# ASCII CHARACTHER CONSTANTS
 ###########################################################################
 .equ CONST_CHAR_EOF 0
 .equ CONST_CHAR_SPACE 32
@@ -28,11 +28,10 @@
 .equ CONST_CHAR_HYPHEN 45
 .equ CONST_CHAR_ZERO 48
 
+###########################################################################
+# DATA sECTION WITH STATIC MEMORY RESERVATIONS.
+###########################################################################
 .data
-###########################################################################
-# Data section with static memory reservations.
-# Feel free to add more if needed.
-###########################################################################
 VOCABULARY_FILENAME:     .string "vocab.txt"
 EMBEDDINGS_FILENAME:     .string "embeddings.txt"
 INPUT_FILENAME:          .string "input.txt"
@@ -142,31 +141,41 @@ main:
     la a1, Q_MATRIX
     la a2, K_MATRIX
     la a3, INPUT_TOTAL_TOKENS
-    lw a3, 0(a3)        # Loads the value from the address
+    lw a3, 0(a3)               # Loads the value from the address
     li a4, CONST_DIMENSION
-    addi a5, a3, -1     # Remove one to use it for a5
+    addi a5, a3, -1            # Remove one to use it for a5
     jal ra, compute_scores
 
-    ###########################################################################
     # Get the highest score index using argmax
-    ###########################################################################
-    # TODO
-
-    ###########################################################################
+    la a1, SCORES_VECTOR       # Loads the updated vector
+    la a2, INPUT_TOTAL_TOKENS  
+    lw a2, 0(a2)               # Gets the value from the memory of size of vector
+    jal ra, argmax
+    bnez a0, exit_with_code    # If a0 != 0, then argmax failed and exits
+    
     # Select chosen vector in V using the index from argmax
-    ###########################################################################
-    # TODO
+    mv a4, a1                  # Moves the value from argmax to a4
+    la a1, V_MATRIX
+    la a2, INPUT_TOTAL_TOKENS  # Reloads the values for a2, as to follow the
+    lw a2, 0(a2)               # calling-convention of RISC-V even tho it might not
+    li a3, CONST_DIMENSION     # be totally needed as argmax doesn't change its value
+    jal ra, select_vector_in_matrix
 
-    ###########################################################################
     # Pick the next token in the vocabulary with the highest score
-    ###########################################################################
-    # TODO
+    beqz a0, exit_with_code    # If a0 = 0 here, then it means the select_vector fucnt
+                               # got an error with the first conditions
+    la a1, VOCAB_EMBEDDINGS_MATRIX
+    la a2, VOCAB_TOTAL_TOKENS  # As vocab_total_tokens isn't a constant but
+    lw a2, 0(a2)               # rather a stored variable in the RAM 
+    jal ra, decide_next_token
 
-    ###########################################################################
     # Terminate program successfully
-    ###########################################################################
     li a0, 0
     j exit_with_code                                # Exit with code 0
+
+###########################################################################
+# HERE WE HAVE THE LIST OF ALL THE AUXILIARY FUNCTIONS USED FOR MAIN
+###########################################################################
 
 # Read from a text file into a buffer.
 # (in)     a0: filename address (char*)
@@ -237,43 +246,7 @@ end_parsing:
 # (in)     a2: address to input buffer
 # (in)     a3: address to vocabulary buffer
 tokens_to_indices:
-    li t0, 0 # Tracks number of tokens in input
-    addi sp, sp, -4
-    sw a0, 0(sp) # Store original input indices vector address
-index_finder:
-    lbu t2, 0(a2) # Store current input character for evaluation (catch empty inputs)
-    beqz t2, end_tokenstoindices # Check if character is EOF
-    mv t3, a3 # (re)Set vocabulary buffer pointer to the start of buffer
-    li t1, 0 # Line Counter
-    mv t6, a2 # Store pointer to the BEGINNING of current word
-matching_char:
-    lbu t2, 0(a2) # Store input character
-    lbu t4, 0(t3) # Store vocab character
-    li t5, 10 # Newline ASCII value
-    bne t4, t2, not_matched # If the characters are the same, continue checking word
-    beq t5, t2, found_word
-    addi t3, t3, 1 # Move to next vocabulary character
-    addi a2, a2, 1 # Move to next input character
-    j matching_char # Run the check again  
-not_matched:
-    addi t1, t1, 1 # Increment line counter by 1, because moving to next vocab word
-    mv a2, t6 # Go back to beginning of current input word
-skip_word:
-    addi t3, t3, 1 # Move to next char, so t3 always points 1 after newline, if found
-    beq t4, t5, matching_char # Check if char 1 before vocab pointer is newline
-    lbu t4, 0(t3) # Test following character
-    j skip_word
-found_word:
-    sw t1, 0(a0) # Store the input word's line index in the vocabulary file
-    addi t0, t0, 1 # Found one word, so increment token counter by 1
-    addi a0, a0, 4 # Move to next input indice word to fill
-    addi a2, a2, 1 # Move past newline to be at next word's first character
-    j index_finder
-end_tokenstoindices:
-    lw a0, 0(sp) # Restore a0's original address (start of input indices vector)
-    addi sp, sp, 4 # Free allocated stack space
-    mv a1, t0 # Store the number of tokens found inside a1 for returning purposes
-    jr ra
+    # TODO
 
 # (in/out) a0: address of the output matrix to fill (int*)
 # (in)     a1: address of the vocabulary embeddings matrix (int*)
@@ -299,7 +272,7 @@ matrix_multiply:
 # (in)     a4: #columns of Q and K (int)
 # (in)     a5: target token index for which we want to compute the score (int)
 compute_scores:
-    addi sp, sp, -32    # Add 8 positions to the stock
+    addi sp, sp, -32    # Add free space positions to the stock
     sw s0, 0(sp)        # Stores the different s0-s6 into the stock to not lose them
     sw s1, 4(sp)
     sw s2, 8(sp)
@@ -353,17 +326,72 @@ compute_scores_end:
 # (in)  a3: #cols (int)
 # (in)  a4: target row
 select_vector_in_matrix:
-    # TODO
+    # This function is like a List[i][j] in python -> pretty simple
+    # We just need to assure the a4 conditions before starting the adress change
+    bltz a4, select_vector_error     # Assures target row => 0
+    bge a4, a2, select_vector_error  # if a4 > a2, then it's out of range that's why
+                                     # we need the a2 here to check it
+    mul t0, a4, a3      # Gets the target row from argmax and multiplies by collumns
+    slli t0, t0, 2      # Mults by the *4 to convert to bytes needed
+    add a0, a1, t0      # The adress + displacement to return
+    ret
+select_vector_error:
+    li a0, 0
+    ret
 
 # (out) a0: index of the predicted token in the vocabulary (int)
 # (in)  a0: address of target vector (int*)
 # (in)  a1: vocabulary embeddings address (int*)
 # (in)  a2: number of tokens in vocabulary (int)
 decide_next_token:
-    # TODO
+    addi sp, sp, -32    # Add positions to the stock
+    sw s0, 0(sp)        # Stores the different s0-s2 and ra into the stock to not
+    sw s1, 4(sp)        # lose them and follow RISC-V convention call
+    sw s2, 8(sp)
+    sw s3, 12(sp)
+    sw s4, 16(sp)
+    sw s5, 20(sp)
+    sw ra, 24(sp)
+    mv s0, a0           # Moves the respective values to the s0-s6, to not have
+    mv s1, a1           # them being overwritten in the dot call
+    mv s2, a2
+    li a3, CONST_DIMENSION # Setting it in the beginning as dot won't change its value
+    li s3, 0            # Value to increment -> j
+    li s4, 0x80000000   # The lowest score  
+    li s5, 0            # Adress value stored
+    # Lowest int number possible, by starting like this we'll be able to not do the
+    # cycle one time in the beggining and save up memory and space even tho it has the
+    # same speed as the other option
+    # Checked this one with AI to see what would be best to implement
+decide_next_token_loop:
+    beq s3, s2, decide_next_end # Ends the loop when j = number of tokens in vocab
+    mv a1, s0           # Assures dot has the needed values to work correctly
+    mv a2, s1
+    jal ra, dot         # Calls dot to check dot product
+    bnez a0, decide_next_error # dot function failed
+    ble a1, s4, decide_next_token_next
+    mv s4, a1           # New biggest value = dot given value
+    mv s5, s1           # Saves the current address as the biggest one
+decide_next_token_next:
+    addi s3, s3, 1      # Increments for next loop
+    addi s1, s1, 16     # Moves to next line of matrix and reloops
+    j decide_next_token_loop
+decide_next_error:
+    li s5, 0
+decide_next_end:
+    mv a0, s5
+    lw s0, 0(sp)        # Loads back all the values stores in the stock and
+    lw s1, 4(sp)        # uses them to be stored and not lost
+    lw s2, 8(sp)
+    lw s3, 12(sp)
+    lw s4, 16(sp)
+    lw s5, 20(sp)
+    lw ra, 24(sp)       # With the return address back on, we can call ret 
+    addi sp, sp, 32     # and clear the pile/stock clearing the memory
+    ret
 
 #############################################################################################################
-# Dot product and argmax helper functions.
+# DOT AND ARGMAX AUXILIARY FUNCTIONS
 #############################################################################################################
 
 # (in)  a1: address of first vector (int*)
@@ -466,9 +494,8 @@ exit_with_code:
     ecall
 
 #############################################################################################################
-# Helper functions for printing and debugging.
+# HELPER FUNCTIONS FOR PRINTING AND DEBUGGING
 #############################################################################################################
-
 .data
 PRINT_HEADER_VOCABULARY:    .string "=== Vocabulary ==="
 PRINT_HEADER_INPUT:         .string "=== Input ==="
@@ -542,7 +569,6 @@ print_indices:
     lw s1, 8(sp)
     addi sp, sp, 12
     ret
-
 print_scores:
     addi sp, sp, -4
     sw ra, 0(sp)
