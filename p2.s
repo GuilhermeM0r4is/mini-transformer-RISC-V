@@ -64,58 +64,87 @@ main:
     ###########################################################################
     # Read vocabulary
     ###########################################################################
-    # TODO
-
+    la a0, VOCABULARY_FILENAME
+    la a1, VOCAB_BUFFER
+    li a2, CONST_BUFFER_SIZE
+    jal ra, read_file
+    
     ###########################################################################
     # Read input
     ###########################################################################
-    # TODO
+    la a0, INPUT_FILENAME
+    la a1, INPUT_BUFFER
+    li a2, CONST_BUFFER_SIZE ### In case corruption occurs in a2, removable line(s)
+    jal ra, read_file
 
     ###########################################################################
     # Read W_Q matrix
     ###########################################################################
-    # TODO
+    la a0, W_Q_FILENAME
+    la a1, MATRIX_BUFFER
+    li a2, CONST_BUFFER_SIZE ###
+    jal ra, read_file
 
     ###########################################################################
     # Parse W_Q matrix from buffer
     ###########################################################################
-    # TODO
+    la a0, W_Q_MATRIX
+    la a1, MATRIX_BUFFER ## In case corruption occured in a1, removable as well
+    jal ra, parse_matrix_buffer
 
     ###########################################################################
     # Read W_K matrix
     ###########################################################################
-    # TODO
+    la a0, W_K_FILENAME
+    la a1, MATRIX_BUFFER ##
+    li a2, CONST_BUFFER_SIZE ###
+    jal ra, read_file
 
     ###########################################################################
     # Parse W_K matrix from buffer
     ###########################################################################
-    # TODO
+    la a0, W_K_MATRIX
+    la a1, MATRIX_BUFFER ##
+    jal ra, parse_matrix_buffer
 
     ###########################################################################
     # Read W_V matrix
     ###########################################################################
-    # TODO
+    la a0, W_V_FILENAME
+    la a1, MATRIX_BUFFER ##
+    li a2, CONST_BUFFER_SIZE ###
+    jal ra, read_file
 
     ###########################################################################
     # Parse W_V matrix from buffer
     ###########################################################################
-    # TODO
+    la a0, W_V_MATRIX
+    la a1, MATRIX_BUFFER ##
+    jal ra, parse_matrix_buffer
 
     ###########################################################################
     # Read embeddings matrix
     ###########################################################################
-    # TODO
+    la a0, EMBEDDINGS_FILENAME
+    la a1, MATRIX_BUFFER ##
+    li a2, CONST_BUFFER_SIZE ###
+    jal ra, read_file
 
     ###########################################################################
     # Parse vocabulary embeddings matrix from buffer
     ###########################################################################
-    # TODO
+    la a0, VOCAB_EMBEDDINGS_MATRIX
+    la a1, MATRIX_BUFFER ##
+    jal ra, parse_matrix_buffer
 
     ###########################################################################
     # Convert input tokens to indices
     ###########################################################################
-    # TODO
-
+    la a0, INPUT_INDICES_VECTOR
+    la a2, INPUT_BUFFER
+    la a3, VOCAB_BUFFER
+    jal ra, tokens_to_indices
+    
     ###########################################################################
     # Build input embeddings matrix
     ###########################################################################
@@ -204,8 +233,8 @@ read_file:
 # (out)    a1: number of rows in the matrix (int)
 # (in)     a1: address of the buffer containing the matrix data (char*)
 parse_matrix_buffer: 
-    mv t0, a1          # Store the address of the destination buffer
-    mv t1, a0          # Store the address of the buffer containing the matrix data
+    mv t0, a0          # Store the address of the destination buffer
+    mv t1, a1          # Store the address of the buffer containing the matrix data
     li t3, 0           # Row counter
     li t4, 0           # Number accumulator
     li t6, 1           # "Is negative number" flag (1 = false, -1 = true)
