@@ -123,48 +123,63 @@ main:
     la a3, VOCAB_BUFFER
     jal ra, tokens_to_indices
     
-    ###########################################################################
     # Build input embeddings matrix
-    ###########################################################################
-    # TODO
+    la a0, INPUT_EMBEDDINGS_MATRIX
+    la a1, VOCAB_EMBEDDINGS_MATRIX
+    la a2, INPUT_INDICES_VECTOR
+    lw a3, INPUT_TOTAL_TOKENS
+    jal ra, build_input_embeddings_matrix
 
-    ###########################################################################
     # Build matrix Q
-    ###########################################################################
-    # TODO
-
-    ###########################################################################
+    la a0, Q_MATRIX
+    la a1, INPUT_EMBEDDINGS_MATRIX
+    lw a2, INPUT_TOTAL_TOKENS
+    li a3, CONST_DIMENSION
+    la a4, W_Q_MATRIX
+    li a5, CONST_DIMENSION
+    mv a6, a5
+    jal ra, matrix_multiply
+    
     # Build matrix K
-    ###########################################################################
-    # TODO
+    la a0, K_MATRIX
+    la a1, INPUT_EMBEDDINGS_MATRIX
+    lw a2, INPUT_TOTAL_TOKENS
+    li a3, CONST_DIMENSION
+    la a4, W_K_MATRIX
+    li a5, CONST_DIMENSION
+    mv a6, a5
+    jal ra, matrix_multiply
 
-    ###########################################################################
     # Build matrix V
-    ###########################################################################
-    # TODO
+    la a0, V_MATRIX
+    la a1, INPUT_EMBEDDINGS_MATRIX
+    lw a2, INPUT_TOTAL_TOKENS
+    li a3, CONST_DIMENSION
+    la a4, W_V_MATRIX
+    li a5, CONST_DIMENSION
+    mv a6, a5
+    jal ra, matrix_multiply
 
     # Compute scores for the last input token
     la a0, SCORES_VECTOR
     la a1, Q_MATRIX
     la a2, K_MATRIX
-    la a3, INPUT_TOTAL_TOKENS
-    lw a3, 0(a3)               # Loads the value from the address
+    lw a3, INPUT_TOTAL_TOKENS  # Loads the value from the address
     li a4, CONST_DIMENSION
     addi a5, a3, -1            # Remove one to use it for a5
     jal ra, compute_scores
 
     # Get the highest score index using argmax
     la a1, SCORES_VECTOR       # Loads the updated vector
-    la a2, INPUT_TOTAL_TOKENS  
-    lw a2, 0(a2)               # Gets the value from the memory of size of vector
+    lw a2, INPUT_TOTAL_TOKENS  # Gets the value from the memory of size of vector
     jal ra, argmax
     bnez a0, exit_with_code    # If a0 != 0, then argmax failed and exits
     
     # Select chosen vector in V using the index from argmax
     mv a4, a1                  # Moves the value from argmax to a4
     la a1, V_MATRIX
-    la a2, INPUT_TOTAL_TOKENS  # Reloads the values for a2, as to follow the
-    lw a2, 0(a2)               # calling-convention of RISC-V even tho it might not
+    lw a2, INPUT_TOTAL_TOKENS  # Reloads the values for a2, as to follow the
+                               # calling-convention of RISC-V even tho it might not
     li a3, CONST_DIMENSION     # be totally needed as argmax doesn't change its value
     jal ra, select_vector_in_matrix
 
@@ -172,12 +187,12 @@ main:
     beqz a0, exit_with_code    # If a0 = 0 here, then it means the select_vector fucnt
                                # got an error with the first conditions
     la a1, VOCAB_EMBEDDINGS_MATRIX
-    la a2, VOCAB_TOTAL_TOKENS  # As vocab_total_tokens isn't a constant but
-    lw a2, 0(a2)               # rather a stored variable in the RAM 
+    lw a2, VOCAB_TOTAL_TOKENS  # As vocab_total_tokens isn't a constant but
+                               # rather a stored variable in the RAM 
     jal ra, decide_next_token
     beqz a0, exit_with_code
     jal ra, print_predicted_token # Prints the decided token and ends
-´
+
     # Terminate program successfully
     li a0, 0
     j exit_with_code                                # Exit with code 0
