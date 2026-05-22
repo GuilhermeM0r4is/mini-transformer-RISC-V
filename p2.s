@@ -168,7 +168,9 @@ main:
     la a2, VOCAB_TOTAL_TOKENS  # As vocab_total_tokens isn't a constant but
     lw a2, 0(a2)               # rather a stored variable in the RAM 
     jal ra, decide_next_token
-
+    beqz a0, exit_with_code
+    jal ra, print_predicted_token # Prints the decided token and ends
+´
     # Terminate program successfully
     li a0, 0
     j exit_with_code                                # Exit with code 0
@@ -253,7 +255,35 @@ tokens_to_indices:
 # (in)     a2: address of the input indices array (int*)
 # (in)     a3: number of tokens in the input (int)
 build_input_embeddings_matrix:
-    # TODO
+    li t0,0    # loop index variable (i=0)
+build_input_loop:
+    # Checks if all tokens(words) have been processed.
+    beq t0, a3, end_build_input_loop
+    # Lets say a2 is the array of "words" the memory sees it has numbers,
+    # so they work like "word IDS" -> lets say the point of the function is:
+    # Read de words Ids array(a2); For each word, we look into our vocabulary 
+    # matrix(a1), obtain the row corresponding and then paste it into the final matrix.
+    slli t1, t0, 2       # t1 = i4 bytes (offset in the input array)
+    add t2, a2, t1       # t2 = base address (a2) + offset (t1)
+    lw t3, 0(t2)         # t3 = value of input_indices[i](word ids)
+    slli t4,t3,4         # a row has 4x4 bytes (16)
+    add t4,a1,t4         # t4 now has the adress containing the wanted row
+    slli t5,t0,4         # t5 = i16 bytes
+    add t5,a0,t5         # "pointer" to an exact coordenate in the matrix
+    lw t6,0(t4)       
+    sw t6,0(t5)       
+    lw t6,4(t4)       
+    sw t6,4(t5)          # Paste row into final matrix:
+    lw t6,8(t4)          # obtains the values inside the row
+    sw t6,8(t5)          # stores the value inside the output matrix
+    lw t6,12(t4)      
+    sw t6,12(t5)      
+    # When the program runs the only relevant values are the values inside a0, 
+    # which are now changed due to the temporary variables.
+    addi t0,t0,1         # repeat loop
+    j build_input_loop
+end_build_input_loop:
+    jr ra                #returns to the called function
 
 # (in/out) a0: address of the output matrix to fill (int*)
 # (in)     a1: address of the first matrix (int*)
@@ -263,7 +293,48 @@ build_input_embeddings_matrix:
 # (in)     a5: #rows of the second matrix (int)
 # (in)     a6: #columns of the second matrix (int)
 matrix_multiply:
-    # TODO
+    # a_loop is responsible for picking the row of A matrix
+    # b_loop picks the collumn of B, b_loop is inside a loop, so once all collumns
+    # have been picked and worked on, we go into the next row and repeat the process.
+    # main_loop is the loop that does the math for each coordenate of the matrix
+    li t0, 0             # i = 0, current row in A
+    slli t3, a6, 2       # value refering to move to the next line of B
+a_loop:
+    beq t0, a2, end_matrix_multiply    # if i == rows of A, every row is done
+    mul t4, t0, a3       # here we use this logic to get to know where does the
+    slli t4, t4, 2       # A matrix new line start to use it A[i][0]
+    add t4, a1, t4
+    li t1, 0             # j = 0, current column of B
+b_loop:
+    beq t1, a6, b_loop_end
+    slli t5, t1, 2       # the same way we looked for the new line of A
+    add t5, a4, t5       # before, now we look for B[0][j]
+    li t2, 0             # main loop index
+    li t6, 0             # t6 will store the values -> acumulator
+main_loop:       # multiplys the values for that speccific coordenate
+    bge t2, a3, end_main_loop
+    lw a5, 0(t4)         # pointer for the A, using a5 because its not needed
+                         # as it has the same value as a3!
+    lw a7, 0(t5)         # pointer for B
+    mul a5, a5, a7    
+    add t6, t6, a5       # acumulator variable for the multiply
+    addi t4, t4, 4       # moves the A pointer to next element
+    add t5, t5, t3       # moves the B pointer to the next line
+    addi t2, t2, 1       # keeps the cycle going on
+    j main_loop
+end_main_loop:
+    mul t4, t0, a6
+    add t4, t4, t1
+    slli t4, t4, 2
+    add t4, a0, t4
+    sw t6, 0(t4)        # C[i][j]=value accumulator
+    addi t1, t1, 1      # advances a collumn in the same row
+    j b_loop            # repeats b_loop
+b_loop_end:
+    addi t0,t0,1        # all collumns of the A row have been completed
+    j a_loop
+end_matrix_multiply:
+    jr ra
 
 # (in/out) a0: address of the output scores vector to fill (int*)
 # (in)     a1: address of Q matrix (int*)
