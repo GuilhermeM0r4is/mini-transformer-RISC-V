@@ -231,6 +231,7 @@ parse_matrix_buffer:
     li t3, 0           # Row counter
     li t4, 0           # Number accumulator
     li t6, 1           # "Is negative number" flag (1 = false, -1 = true)
+    
 parsing_loop:
     lbu t2, 0(t1)      # Extract the character's ASCII value
     addi t1, t1, 1     # Move to the next character to parse (byte by byte)
@@ -247,9 +248,11 @@ parsing_loop:
     mul t4, t4, t5     # Make space for the new digit (lowest base,since read right > left)
     add t4, t4, t2     # Add new digit to the rest of the number
     j parsing_loop
+    
 next_line:
     addi t3, t3, 1     # Moving to next row, so increment row counter by one
     # Falling into the acc_number label is intentional, so as to not repeat code
+    
 acc_number:
     mul t4, t4, t6     # Negate value if flag is true, does nothing otherwise
     li t6, 1           # Reset the "negative number" flag
@@ -257,9 +260,11 @@ acc_number:
     addi t0, t0, 4     # Move pointer to the next word in destination buffer
     li t4, 0           # Reset the number accumulator
     j parsing_loop
+    
 negative_flag:
     li t6, -1          # Set "negative number" flag as true
     j parsing_loop
+    
 end_parsing:
     mv a1, t3          # Store the number of rows in the matrix inside a1
     ret
@@ -321,6 +326,7 @@ end_tokenstoindices:
 # (in)     a3: number of tokens in the input (int)
 build_input_embeddings_matrix:
     li t0,0    # loop index variable (i=0)
+    
 build_input_loop:
     # Checks if all tokens(words) have been processed.
     beq t0, a3, end_build_input_loop
@@ -328,6 +334,7 @@ build_input_loop:
     # so they work like "word IDS" -> lets say the point of the function is:
     # Read de words Ids array(a2); For each word, we look into our vocabulary 
     # matrix(a1), obtain the row corresponding and then paste it into the final matrix.
+    
     slli t1, t0, 2       # t1 = i4 bytes (offset in the input array)
     add t2, a2, t1       # t2 = base address (a2) + offset (t1)
     lw t3, 0(t2)         # t3 = value of input_indices[i](word ids)
@@ -335,6 +342,7 @@ build_input_loop:
     add t4,a1,t4         # t4 now has the adress containing the wanted row
     slli t5,t0,4         # t5 = i16 bytes
     add t5,a0,t5         # "pointer" to an exact coordenate in the matrix
+    
     lw t6,0(t4)       
     sw t6,0(t5)       
     lw t6,4(t4)       
@@ -364,18 +372,21 @@ matrix_multiply:
     # main_loop is the loop that does the math for each coordenate of the matrix
     li t0, 0             # i = 0, current row in A
     slli t3, a6, 2       # value refering to move to the next line of B
+    
 a_loop:
     beq t0, a2, end_matrix_multiply    # if i == rows of A, every row is done
     mul t4, t0, a3       # here we use this logic to get to know where does the
     slli t4, t4, 2       # A matrix new line start to use it A[i][0]
     add t4, a1, t4
     li t1, 0             # j = 0, current column of B
+    
 b_loop:
     beq t1, a6, b_loop_end
     slli t5, t1, 2       # the same way we looked for the new line of A
     add t5, a4, t5       # before, now we look for B[0][j]
     li t2, 0             # main loop index
     li t6, 0             # t6 will store the values -> acumulator
+    
 main_loop:       # multiplys the values for that speccific coordenate
     bge t2, a3, end_main_loop
     lw a5, 0(t4)         # pointer for the A, using a5 because its not needed
@@ -387,6 +398,7 @@ main_loop:       # multiplys the values for that speccific coordenate
     add t5, t5, t3       # moves the B pointer to the next line
     addi t2, t2, 1       # keeps the cycle going on
     j main_loop
+    
 end_main_loop:
     mul t4, t0, a6
     add t4, t4, t1
@@ -395,9 +407,11 @@ end_main_loop:
     sw t6, 0(t4)        # C[i][j]=value accumulator
     addi t1, t1, 1      # advances a collumn in the same row
     j b_loop            # repeats b_loop
+    
 b_loop_end:
     addi t0,t0,1        # all collumns of the A row have been completed
     j a_loop
+    
 end_matrix_multiply:
     jr ra
 
@@ -422,10 +436,12 @@ compute_scores:
     mv s3, a3
     mv s4, a4
     mv s5, a5
+    
     mul t0, s4, s5      # Lines * Collumns to get the value for the adress
     slli t0, t0, 2      # Get the fixed line address -> fixed Q adress
     add s1, s1, t0      # Move the value for the adress to use it
     li t0, 0            # j value to be used for the K matrix adress
+    
 compute_scores_loop:
     beq t0, s3, compute_scores_success  # Assures the cycle only runs until it reaches,
                                       # the total number of lines (s3)
@@ -437,14 +453,17 @@ compute_scores_loop:
     mv a3, s4    
     jal ra, dot         # Jumps to dot with a caller to come back here after finishing
     bnez a0, compute_scores_end  # If != 0, then we have error overflow, and ends
+    
     slli t3, t0, 2      # Moves the 4 bytes for each j value we have to use it for the index
                         # as we can't have the "0" in sw changing
     add t3, t3, s0      # Adds the t3 to the output scores vector index adress
     sw a1, 0(t3)        # Stores the value into the scores vector
     addi t0, t0, 1      # Continues the cycle j++
     j compute_scores_loop
+    
 compute_scores_success:
     li a0, 0            # Assures the return code is 0
+    
 compute_scores_end:
     lw s0, 0(sp)        # Loads back all the values stores in the stock and
     lw s1, 4(sp)        # uses them to be stored and not lost
@@ -467,10 +486,12 @@ select_vector_in_matrix:
     bltz a4, select_vector_error     # Assures target row => 0
     bge a4, a2, select_vector_error  # if a4 > a2, then it's out of range that's why
                                      # we need the a2 here to check it
+                                     
     mul t0, a4, a3      # Gets the target row from argmax and multiplies by collumns
     slli t0, t0, 2      # Mults by the *4 to convert to bytes needed
     add a0, a1, t0      # The adress + displacement to return
     ret
+    
 select_vector_error:
     li a0, 0
     ret
@@ -491,6 +512,7 @@ decide_next_token:
     mv s0, a0           # Moves the respective values to the s0-s6, to not have
     mv s1, a1           # them being overwritten in the dot call
     mv s2, a2
+    
     li a3, CONST_DIMENSION # Setting it in the beginning as dot won't change its value
     li s3, 0            # Value to increment -> j
     li s4, 0x80000000   # The lowest score  
@@ -499,6 +521,7 @@ decide_next_token:
     # cycle one time in the beggining and save up memory and space even tho it has the
     # same speed as the other option
     # Checked this one with AI to see what would be best to implement
+    
 decide_next_token_loop:
     beq s3, s2, decide_next_end # Ends the loop when j = number of tokens in vocab
     mv a1, s0           # Assures dot has the needed values to work correctly
@@ -508,12 +531,15 @@ decide_next_token_loop:
     ble a1, s4, decide_next_token_next
     mv s4, a1           # New biggest value = dot given value
     mv s5, s1           # Saves the current address as the biggest one
+    
 decide_next_token_next:
     addi s3, s3, 1      # Increments for next loop
     addi s1, s1, 16     # Moves to next line of matrix and reloops
     j decide_next_token_loop
+    
 decide_next_error:
     li s5, 0
+    
 decide_next_end:
     mv a0, s5
     lw s0, 0(sp)        # Loads back all the values stores in the stock and
@@ -546,6 +572,7 @@ dot:
     beq t2, zero, dot_loop                          # If SIZE >= 1, we can proceed to the loop
     li a0, 50                                       # Set a0 to 50 to indicate an error (invalid size)
     j dot_end                                       # If SIZE < 1, jump to dot_end
+    
 dot_loop:
     beq t1, a3, dot_end_loop                        # If t1 == SIZE, we are done
     lw t2, 0(a1)                                    # Load A[t1] into t2
@@ -562,26 +589,32 @@ dot_loop:
     bgt t6, zero, check_positive_overflow           # If previous result was positive, check for positive overflow
     blt t6, zero, check_negative_overflow           # If previous result was negative, check for negative overflow
     j dot_continue_loop
+    
 check_positive_overflow:
     blt t4, zero, dot_continue_loop                 # If we added a negative number, we can't have a positive overflow
     blt t0, zero, overflow                          # If t0 < 0 after adding a positive number, we have an overflow
     j dot_continue_loop
+    
 check_negative_overflow:
     bgt t4, zero, dot_continue_loop                 # If we added a positive number, we can't have a negative overflow
     bgt t0, zero, overflow                          # If t0 > 0 after adding a negative number, we have an overflow
     j dot_continue_loop
+    
 dot_continue_loop:
     addi a1, a1, 4                                  # Move to the next element in A
     addi a2, a2, 4                                  # Move to the next element in B
     addi t1, t1, 1                                  # t1++
     j dot_loop                                      # Repeat the loop
+    
 dot_end_loop:
     li a0, 0                                        # Set a0 to 0 to indicate success
     mv a1, t0                                       # Move the result into a1 for return
     j dot_end                                       # Jump to the end of the function
+    
 overflow:
     li a0, 200                                      # Set a0 to 200 to indicate an overflow error
     j dot_end                                       # Jump to the end of the function
+    
 dot_end:
     lw ra, 0(sp)                                    # Restore return address
     addi sp, sp, 4                                  # Deallocate stack space
@@ -606,6 +639,7 @@ argmax:
     beq t3, zero, argmax_loop                       # if SIZE >= 1, we can proceed to the loop
     li a0, 50                                       # set a0 to 50 to indicate an error (invalid size)
     j argmax_end                                    # if SIZE < 1, jump to argmax_end
+    
 argmax_loop:
     # The actual loop logic.
     beq t2, a2, argmax_end_loop                     # if t2 == SIZE, we are done
@@ -613,13 +647,16 @@ argmax_loop:
     ble t3, t0, argmax_next                         # if A[t2] <= max_value, skip to next
     mv t0, t3                                       # max_value = A[t2]
     mv t1, t2                                       # index_of_max = t2
+    
 argmax_next:
     addi a1, a1, 4                                  # move to the next element in A
     addi t2, t2, 1                                  # t2++
     j argmax_loop                                   # repeat the loop
+    
 argmax_end_loop:
     mv a1, t1                                       # move the index of the max value into a1 for return
     li a0, 0                                        # set a0 to 0 to indicate success
+    
 argmax_end:
     lw ra, 0(sp)                                    # Restore return address
     addi sp, sp, 4                                  # Deallocate stack space
@@ -705,6 +742,7 @@ print_indices:
     lw s1, 8(sp)
     addi sp, sp, 12
     ret
+    
 print_scores:
     addi sp, sp, -4
     sw ra, 0(sp)
@@ -734,9 +772,11 @@ print_matrix:
     li s1, 0                                        # s1 = current row index
     la a0, PRINT_HEADER_MATRIX
     jal println
+    
 print_matrix_row_loop:
     beq s1, s3, print_matrix_done
     li s2, 0
+    
 print_matrix_col_loop:
     beq s2, s4, print_matrix_next_row
     lw a0, 0(s0)
@@ -748,12 +788,14 @@ print_matrix_col_loop:
     li a7, CONST_SYSCALL_PRINT_CHAR
     ecall
     j print_matrix_col_loop
+    
 print_matrix_next_row:
     li a0, CONST_CHAR_NEWLINE
     li a7, CONST_SYSCALL_PRINT_CHAR
     ecall
     addi s1, s1, 1
     j print_matrix_row_loop
+    
 print_matrix_done:
     lw ra, 0(sp)
     lw s0, 4(sp)
@@ -775,6 +817,7 @@ print_vector:
     la a0, PRINT_VECTOR_LB                          # Print "[ "
     li a7, CONST_SYSCALL_PRINT_STRING
     ecall
+    
 print_vector_loop:
     beq s1, zero, print_vector_done
     lw a0, 0(s0)
@@ -786,6 +829,7 @@ print_vector_loop:
     addi s0, s0, 4
     addi s1, s1, -1
     j print_vector_loop
+    
 print_vector_done:
     la a0, PRINT_VECTOR_RB                          # Print "]"
     li a7, CONST_SYSCALL_PRINT_STRING
@@ -807,6 +851,7 @@ print_predicted_token:
     la a0, PRINT_HEADER_NEXT_TOKEN
     jal println
     # s0 = start of target token, print it char by char until newline or null
+    
 print_predicted_token_char:
     lb t0, 0(s0)
     beq t0, zero, print_predicted_token_nl          # null terminator
@@ -817,6 +862,7 @@ print_predicted_token_char:
     ecall
     addi s0, s0, 1
     j print_predicted_token_char
+    
 print_predicted_token_nl:
     li a0, CONST_CHAR_NEWLINE
     li a7, CONST_SYSCALL_PRINT_CHAR
