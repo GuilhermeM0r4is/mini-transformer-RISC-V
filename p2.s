@@ -29,7 +29,7 @@
 .equ CONST_CHAR_ZERO 48
 
 ###########################################################################
-# DATA sECTION WITH STATIC MEMORY RESERVATIONS.
+# DATA SECTION WITH STATIC MEMORY RESERVATIONS.
 ###########################################################################
 .data
 VOCABULARY_FILENAME:     .string "vocab.txt"
@@ -116,12 +116,18 @@ main:
     la a0, VOCAB_EMBEDDINGS_MATRIX
     la a1, MATRIX_BUFFER ##
     jal ra, parse_matrix_buffer
+    
+    la t0, VOCAB_TOTAL_TOKENS # Store number of vocab tokens in the proper variable
+    sw a1, 0(t0)
 
     # Convert input tokens to indices
     la a0, INPUT_INDICES_VECTOR
     la a2, INPUT_BUFFER
     la a3, VOCAB_BUFFER
     jal ra, tokens_to_indices
+    
+    la t0, INPUT_TOTAL_TOKENS # Store number of input tokens in the proper variable
+    sw a1, 0(t0) 
     
     # Build input embeddings matrix
     la a0, INPUT_EMBEDDINGS_MATRIX
@@ -191,6 +197,26 @@ main:
                                # rather a stored variable in the RAM 
     jal ra, decide_next_token
     beqz a0, exit_with_code
+    
+    # Translate chosen token's indice into the corresponding memory address
+    mv t0, a0 # Here, this value represents the number of lines to skip
+    la t1, VOCAB_BUFFER
+    beqz t0, foundtoken_address
+    
+char_readloop:
+    lbu t2, 0(t1) # Read current char
+    addi t1, t1, 1 # Move pointer to next char
+    li t3, CONST_CHAR_NEWLINE
+    beq t2, t3, is_word # If char is a newline, a word has been found
+    beqz t2, foundtoken_address # EOF guardrail (error handling, remove if needed)
+    j char_readloop
+    
+is_word:
+    addi t0, t0, -1 # If t0=0, t1 is pointing to the correct token
+    bnez t0, char_readloop # so, we fallthrough to load a0 with t1's address and print
+
+foundtoken_address:    
+    mv a0, t1
     jal ra, print_predicted_token # Prints the decided token and ends
 
     # Terminate program successfully
@@ -209,7 +235,7 @@ read_file:
     mv t1, a1          # Store the destination buffer for future use
     li a1, 0           # No special flags value for Open system call
     li a7, 1024        # Open syscall
-    ecall              #a0= file descriptor
+    ecall              # a0= file descriptor
     mv t0, a0          # Store the file descriptor for future use (next ecall would destroy it)
     li a7, 63          # Read system call
     mv a1, t1          # Restore the destination buffer value to a1 for Read syscall
@@ -375,13 +401,13 @@ matrix_multiply:
     
 a_loop:
     beq t0, a2, end_matrix_multiply    # if i == rows of A, every row is done
-    mul t4, t0, a3       # here we use this logic to get to know where does the
-    slli t4, t4, 2       # A matrix new line start to use it A[i][0]
-    add t4, a1, t4
     li t1, 0             # j = 0, current column of B
     
 b_loop:
     beq t1, a6, b_loop_end
+    mul t4, t0, a3       # here we use this logic to get to know where does the
+    slli t4, t4, 2       # A matrix new line start to use it A[i][0]
+    add t4, a1, t4
     slli t5, t1, 2       # the same way we looked for the new line of A
     add t5, a4, t5       # before, now we look for B[0][j]
     li t2, 0             # main loop index
@@ -430,6 +456,7 @@ compute_scores:
     sw s4, 16(sp)
     sw s5, 20(sp)
     sw ra, 24(sp)
+    sw s6, 28(sp)
     mv s0, a0           # Moves the respective values to the s0-s6, to not have
     mv s1, a1           # them being overwritten in the dot call
     mv s2, a2
@@ -440,12 +467,12 @@ compute_scores:
     mul t0, s4, s5      # Lines * Collumns to get the value for the adress
     slli t0, t0, 2      # Get the fixed line address -> fixed Q adress
     add s1, s1, t0      # Move the value for the adress to use it
-    li t0, 0            # j value to be used for the K matrix adress
+    li s6, 0            # j value to be used for the K matrix adress
     
 compute_scores_loop:
-    beq t0, s3, compute_scores_success  # Assures the cycle only runs until it reaches,
+    beq s6, s3, compute_scores_success  # Assures the cycle only runs until it reaches,
                                       # the total number of lines (s3)
-    mul t1, s4, t0      # Collumns * J
+    mul t1, s4, s6      # Collumns * J
     slli t1, t1, 2      # Moves to get the address using shift left imm
     add t2, s2, t1      # Adds the value to get the right position
     mv a1, s1        
@@ -454,11 +481,11 @@ compute_scores_loop:
     jal ra, dot         # Jumps to dot with a caller to come back here after finishing
     bnez a0, compute_scores_end  # If != 0, then we have error overflow, and ends
     
-    slli t3, t0, 2      # Moves the 4 bytes for each j value we have to use it for the index
+    slli t3, s6, 2      # Moves the 4 bytes for each j value we have to use it for the index
                         # as we can't have the "0" in sw changing
     add t3, t3, s0      # Adds the t3 to the output scores vector index adress
     sw a1, 0(t3)        # Stores the value into the scores vector
-    addi t0, t0, 1      # Continues the cycle j++
+    addi s6, s6, 1      # Continues the cycle j++
     j compute_scores_loop
     
 compute_scores_success:
@@ -471,6 +498,7 @@ compute_scores_end:
     lw s3, 12(sp)
     lw s4, 16(sp)
     lw s5, 20(sp)
+    lw s6, 28(sp)
     lw ra, 24(sp)       # With the return address back on, we can call ret 
     addi sp, sp, 32     # and clear the pile/stock clearing the memory
     ret
@@ -530,7 +558,7 @@ decide_next_token_loop:
     bnez a0, decide_next_error # dot function failed
     ble a1, s4, decide_next_token_next
     mv s4, a1           # New biggest value = dot given value
-    mv s5, s1           # Saves the current address as the biggest one
+    mv s5, s3           # Saves the current indice as the biggest one
     
 decide_next_token_next:
     addi s3, s3, 1      # Increments for next loop
