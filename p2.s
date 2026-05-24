@@ -233,13 +233,18 @@ foundtoken_address:
 # (in)     a2: maximum number of bytes to read
 read_file:
     mv t1, a1          # Store the destination buffer for future use
+    mv t2, a2          # Stores the maximum bytes value
     li a1, 0           # No special flags value for Open system call
+    li a2, 0           # No special flags value for Open system call
     li a7, 1024        # Open syscall
     ecall              # a0= file descriptor
+    
     mv t0, a0          # Store the file descriptor for future use (next ecall would destroy it)
-    li a7, 63          # Read system call
     mv a1, t1          # Restore the destination buffer value to a1 for Read syscall
-    ecall              # a0= number of bytes read
+    mv a2, t2          # Restores the value
+    li a7, 63          # Read system call
+    ecall              # a0 = number of bytes read
+    
     mv a0, t0          # Restore the file descriptor to a0 for Close system call
     li a7, 57          # Close system call
     ecall              # a0 is unchanged after this operation
@@ -300,50 +305,74 @@ end_parsing:
 # (out)    a1: size of input indices vector (number of tokens in input)
 # (in)     a2: address to input buffer
 # (in)     a3: address to vocabulary buffer
+# Converts the input tokens into their corresponding indices in the vocabulary.
+# (in/out) a0: address of input indices vector to fill (int*)
+# (out)    a1: size of input indices vector (number of tokens in input)
+# (in)     a2: address to input buffer
+# (in)     a3: address to vocabulary buffer
 tokens_to_indices:
-    li t0, 0 # Tracks number of tokens in input
-    addi sp, sp, -4
-    sw a0, 0(sp) # Store original input indices vector address
+    li t0, 0          # Tracks number of tokens in input
+    li t5, 10         # CONST_CHAR_NEWLINE
+    li a4, 32         # CONST_CHAR_SPACE
     
 index_finder:
-    lbu t2, 0(a2) # Store current input character for evaluation (catch empty inputs)
+    lbu t2, 0(a2)     # Store current input character for evaluation (catch empty inputs)
     beqz t2, end_tokenstoindices # Check if character is EOF
-    mv t3, a3 # (re)Set vocabulary buffer pointer to the start of buffer
-    li t1, 0 # Line Counter
-    mv t6, a2 # Store pointer to the BEGINNING of current word
+    beq t2, t5, skip_input_delim
+    beq t2, a4, skip_input_delim
+    mv t3, a3         # (re)Set vocabulary pointer to start of buffer
+    li t1, 0          # line counter
+    mv t6, a2         # Store to the beginning of a current word
 
 matching_char:
-    lbu t2, 0(a2) # Store input character
-    lbu t4, 0(t3) # Store vocab character
-    li t5, 10 # Newline ASCII value
-    
+    lbu t2, 0(a2)     # Store input character
+    lbu t4, 0(t3)     # Store vocab character
+    beq t4, t5, check_input_ended
+    beqz t4, check_input_ended    # checks if it has finished
     bne t4, t2, not_matched # If the characters are the same, continue checking word
-    beq t5, t2, found_word
-    addi t3, t3, 1 # Move to next vocabulary character
-    addi a2, a2, 1 # Move to next input character
-    j matching_char # Run the check again
+    addi t3, t3, 1    # Move to next vocabulary character
+    addi a2, a2, 1    # Move to next input character
+    j matching_char   # Run the check again
+    
+check_input_ended:
+    # if the vocab word finished, the input one also has to
+    beq t2, t5, found_word    # if word == 10
+    beq t2, a4, found_word    # if word == 32
+    beqz t2, found_word
+    j not_matched     # mismatch
         
 not_matched:
-    addi t1, t1, 1 # Increment line counter by 1, because moving to next vocab word
-    mv a2, t6 # Go back to beginning of current input word
+    addi t1, t1, 1    # Increment line counter by 1, because moving to next vocab word
+    mv a2, t6         # Go back to beginning of current input word
     
 skip_word:
-    addi t3, t3, 1 # Move to next char, so t3 always points 1 after newline, if found
-    beq t4, t5, matching_char # Check if char 1 before vocab pointer is newline
-    lbu t4, 0(t3) # Test following character
-    j skip_word
+    lbu t4, 0(t3)     # Test following character
+    beqz t4, word_not_found
+    addi t3, t3, 1    # Move to next char, t3 always points 1 after newline, if found
+    bne t4, t5, skip_word # Will continue to try until next line (10)
+    j matching_char   # Tries to match the next word in vocab
+    
+word_not_found:
+    lbu t2, 0(a2)
+    beqz t2, end_tokenstoindices
+    beq t2, t5, skip_input_delim
+    beq t2, a4, skip_input_delim
+    addi a2, a2, 1
+    j word_not_found
+    
+skip_input_delim:
+    addi a2, a2, 1    # Moves pointer to ignore the delim
+    j index_finder
     
 found_word:
-    sw t1, 0(a0) # Store the input word's line index in the vocabulary file
-    addi t0, t0, 1 # Found one word, so increment token counter by 1
-    addi a0, a0, 4 # Move to next input indice word to fill
-    addi a2, a2, 1 # Move past newline to be at next word's first character
+    sw t1, 0(a0)      # Store the input word's line index in the vocabulary file
+    addi t0, t0, 1    # Found one word, so increment token counter by 1
+    addi a0, a0, 4    # Move to next input indice word to fill
+    addi a2, a2, 1    # Move past the space/newline delimiter
     j index_finder
     
 end_tokenstoindices:
-    lw a0, 0(sp) # Restore a0's original address (start of input indices vector)
-    addi sp, sp, 4 # Free allocated stack space
-    mv a1, t0 # Store the number of tokens found inside a1 for returning purposes
+    mv a1, t0         # Store the number of tokens found inside a1 for returning purposes
     jr ra
 
 # (in/out) a0: address of the output matrix to fill (int*)
