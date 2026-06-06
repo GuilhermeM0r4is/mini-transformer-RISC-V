@@ -8,7 +8,7 @@ FORMAT FOR EACH INSTRUCTION (16 bits maximum):
 
 ADD:
 
-[Opcode] (2 bits) | [Destination Register] (3 bits) | [Register A] (3 bits) | [Register B] (3 bits) | [5 bits trash/extra]
+[Opcode] (2 bits) | [Destination Register] (3 bits) | [Register A] (3 bits) | [8 bits trash/extra]
 
 LOAD IMMEDIATE:
 
