@@ -1,208 +1,113 @@
-# IAC
-Repositório para o GITHub do projeto de IAC - código em assembly.
+# IAC — RISC-V Mini Transformer
 
-RISC-V Assembler Cheat Sheet
-Published 14 Jun 2024 · Updated 02 Mar 2026
+A university project focused on implementing the core concepts of a **mini Transformer model using RISC-V Assembly**.
 
-This cheat sheet provides a handy reference to 32-bit RISC-V instructions, registers, and concepts. Aimed at software developers, it groups instructions by purpose and includes common pseudoinstructions. Clicking on a Guide link takes you to the relevant section of the Project F RISC-V assembler guide for instruction explanation and examples.
-    
-Arithmetic | Bitwise Logic | Shift | Load Immediate | Load and Store | Jump and Function | Branch | Set | Counters | Misc Instructions | Instruction Terminology | RV32 ABI Registers | RISC-V Concepts
-    
-Instructions are from the base integer instruction set (RV32I) unless otherwise noted.    
-```
-Arithmetic    
-Instr 	Description 	Use 	Result 	Guide    
-- add 	Add 	add rd, rs1, rs2 	rd = rs1 + rs2 	arithmetic    
-- addi 	Add Immediate 	addi rd, rs1, imm 	rd = rs1 + imm 	arithmetic    
-- neg 	Negate (p) 	neg rd, rs2 	rd = -rs2 	arithmetic    
-- sub 	Subtract 	sub rd, rs1, rs2 	rd = rs1 - rs2 	arithmetic    
-- mul 	Multiply 	mul rd, rs1, rs2 	rd = (rs1 * rs2)[31:0] 	multiply    
-- mulh 	Multiply High 	mulh rd, rs1, rs2 	rd = (rs1 * rs2)[63:32] 	multiply    
-- mulhu 	Multiply High Unsigned 	mulhu rd, rs1, rs2 	rd = (rs1 * rs2)[63:32] 	multiply    
-- mulhsu 	Multiply High Signed Unsigned 	mulhsu rd, rs1, rs2 	rd = (rs1 * rs2)[63:32] 	multiply    
-- div 	Divide 	div rd, rs1, rs2 	rd = rs1 / rs2 	divide    
-- rem 	Remainder 	rem rd, rs1, rs2 	rd = rs1 % rs2 	divide
-```
+The project explores how operations commonly used in modern machine-learning architectures can be translated into low-level instructions and executed without relying on high-level machine-learning frameworks.
 
-Use addi for subtract immediate too. Multiply and divide instructions require the M extension.
-```
-Bitwise Logic
-Instr 	Description 	Use 	Result 	Guide
-- and 	AND 	and rd, rs1, rs2 	rd = rs1 & rs2 	logical
-- andi 	AND Immediate 	andi rd, rs1, imm 	rd = rs1 & imm 	logical
-- not 	NOT (p) 	not rd, rs1 	rd = ~rs1 	logical
-- or 	OR 	or rd, rs1, rs2 	rd = rs1 | rs2 	logical
-- ori 	OR Immediate 	ori rd, rs1, imm 	rd = rs1 | imm 	logical
-- xor 	XOR 	xor rd, rs1, rs2 	rd = rs1 ^ rs2 	logical
-- xori 	XOR Immediate 	xori rd, rs1, imm 	rd = rs1 ^ imm 	logical
+> **University Project — Computer Architecture and Structures**
+
+## Overview
+
+This repository contains the work developed throughout the IAC course, progressing from fundamental RISC-V Assembly exercises to the implementation of a small computational architecture designed around operations required by a simplified Transformer.
+
+The final project focuses on representing Transformer-style computations at a very low level, requiring direct manipulation of:
+
+* RISC-V registers
+* Memory
+* Integer arithmetic
+* Matrix/vector operations
+* Dot products
+* Custom instruction formats
+* Control flow
+* Data representation
+
+The goal was not to build a production-scale AI model, but to understand **how the computational building blocks behind a Transformer can be implemented at the assembly level**.
+
+## Project Structure
+
+```text
+IAC/
+├── Project I/
+├── Project II/
+├── Project III/
+└── README.md
 ```
 
-```
-Shift
-Instr 	Description 	Use 	Result 	Guide
-- sll 	Shift Left Logical 	sll rd, rs1, rs2 	rd = rs1 << rs2 	shift
-- slli 	Shift Left Logical Immediate 	slli rd, rs1, imm 	rd = rs1 << imm 	shift
-- srl 	Shift Right Logical 	srl rd, rs1, rs2 	rd = rs1 >> rs2 	shift
-- srli 	Shift Right Logical Immediate 	srli rd, rs1, imm 	rd = rs1 >> imm 	shift
-- sra 	Shift Right Arithmetic 	sra rd, rs1, rs2 	rd = rs1 >>> rs2 	shift
-- srai 	Shift Right Arithmetic Immediate 	srai rd, rs1, imm 	rd = rs1 >>> imm 	shift
+The repository contains the different stages of the coursework, showing the progression from basic Assembly programming towards the final implementation.
+
+## Mini Transformer
+
+The final stage introduces a small custom instruction set designed around the operations needed by the project.
+The instruction format is limited to a maximum of **16 bits**, with fields allocated for opcodes, registers, immediates, and operation-specific data.
+
+This required thinking about the Transformer not as a high-level Python/PyTorch model, but as a sequence of primitive operations that can ultimately be executed by a processor.
+
+## What We Learned
+
+This project provided practical experience with:
+
+* **RISC-V Assembly**
+* CPU registers and memory management
+* Instruction encoding
+* Calling conventions and control flow
+* Low-level arithmetic
+* Vector and matrix computations
+* Dot-product operations
+* Designing instructions for a specific computational workload
+* Translating higher-level algorithms into Assembly
+* Understanding the relationship between software and processor architecture
+* Thinking about AI workloads from a hardware/architecture perspective
+
+One of the main challenges was bridging the gap between the mathematical operations used in machine learning and the very limited primitives available at the Assembly level.
+
+## Why a Transformer?
+
+Transformers are normally implemented using high-level frameworks such as PyTorch or TensorFlow, where operations such as matrix multiplication and attention are abstracted away.
+
+This project takes the opposite approach:
+
+```text
+High-level Transformer
+        ↓
+Mathematical operations
+        ↓
+Matrix / vector operations
+        ↓
+Primitive computational operations
+        ↓
+RISC-V instructions
+        ↓
+Assembly execution
 ```
 
-```
-Load Immediate
-Instr 	Description 	Use 	Result 	Guide
-- li 	Load Immediate (p) 	li rd, imm 	rd = imm 	arithmetic
-- lui 	Load Upper Immediate 	lui rd, imm 	rd = imm << 12 	arithmetic
-- auipc 	Add Upper Immediate to PC 	auipc rd, imm 	rd = pc + (imm << 12) 	branch
-```
+This makes it possible to study what is actually happening underneath the abstractions used by modern AI software.
 
-```
-Load and Store
-Instr 	Description 	Use 	Result 	Guide
-- lw 	Load Word 	lw rd, imm(rs1) 	rd = mem[rs1+imm] 	load
--lh 	Load Half 	lh rd, imm(rs1) 	rd = mem[rs1+imm][0:15] 	load
-- lhu 	Load Half Unsigned 	lhu rd, imm(rs1) 	rd = mem[rs1+imm][0:15] 	load
-- lb 	Load Byte 	lb rd, imm(rs1) 	rd = mem[rs1+imm][0:7] 	load
-- lbu 	Load Byte Unsigned 	lbu rd, imm(rs1) 	rd = mem[rs1+imm][0:7] 	load
-- la 	Load Symbol Address (p) 	la rd, symbol 	rd = &symbol 	load
-- sw 	Store Word 	sw rs2, imm(rs1) 	mem[rs1+imm] = rs2 	store
-- sh 	Store Half 	sh rs2, imm(rs1) 	mem[rs1+imm][0:15] = rs2 	store
-- sb 	Store Byte 	sb rs2, imm(rs1) 	mem[rs1+imm][0:7] = rs2 	store
-```
+## Technologies
 
-```
-Jump and Function
-Instr 	Description 	Use 	Result 	Guide
-- j 	Jump (p) 	j imm 	pc += imm 	jump
-- jal 	Jump and Link 	jal rd, imm 	rd = pc+4; pc += imm 	jump
-- jalr 	Jump and Link Register 	jalr rd, rs1, imm 	rd = pc+4; pc = rs1+imm 	jump
-- call 	Call Function (p) 	call symbol 	ra = pc+4; pc = &symbol 	function
-- ret 	Return from Function (p) 	ret 	pc = ra 	function
-```
+| Technology                     | Purpose                              |
+| ------------------------------ | ------------------------------------ |
+| **RISC-V**                     | Instruction set architecture         |
+| **Assembly**                   | Implementation language              |
+| **Registers & Memory**         | Data storage and manipulation        |
+| **Custom Instructions**        | Specialized computational operations |
+| **Matrix / Vector Operations** | Transformer-related computation      |
 
-You can use a label in place of a jump immediate, for example: j label_name
-```
-Branch
-This page lists all branch instructions but you may prefer the branch instruction summary table.
-Instr 	Description 	Use 	Result 	Guide
-- beq 	Branch Equal 	beq rs1, rs2, imm 	if(rs1 == rs2) pc += imm 	branch
-- beqz 	Branch Equal Zero (p) 	beqz rs1, imm 	if(rs1 == 0) pc += imm 	branch
-- bne 	Branch Not Equal 	bne rs1, rs2, imm 	if(rs1 ≠ rs2) pc += imm 	branch
-- bnez 	Branch Not Equal Zero (p) 	bnez rs1, imm 	if(rs1 ≠ 0) pc += imm 	branch
-- blt 	Branch Less Than 	blt rs1, rs2, imm 	if(rs1 < rs2) pc += imm 	branch
-- bltu 	Branch Less Than Unsigned 	bltu rs1, rs2, imm 	if(rs1 < rs2) pc += imm 	branch
-- bltz 	Branch Less Than Zero (p) 	bltz rs1, imm 	if(rs1 < 0) pc += imm 	branch
-- bgt 	Branch Greater Than (p) 	bgt rs1, rs2, imm 	if(rs1 > rs2) pc += imm 	branch
-- bgtu 	Branch Greater Than Unsigned (p) 	bgtu rs1, rs2, imm 	if(rs1 > rs2) pc += imm 	branch
-- bgtz 	Branch Greater Than Zero (p) 	bgtz rs1, imm 	if(rs1 > 0) pc += imm 	branch
-- ble 	Branch Less or Equal (p) 	ble rs1, rs2, imm 	if(rs1 ≤ rs2) pc += imm 	branch
-- bleu 	Branch Less or Equal Unsigned (p) 	bleu rs1, rs2, imm 	if(rs1 ≤ rs2) pc += imm 	branch
-- blez 	Branch Less or Equal Zero (p) 	blez rs1, imm 	if(rs1 ≤ 0) pc += imm 	branch
-- bge 	Branch Greater or Equal 	bge rs1, rs2, imm 	if(rs1 ≥ rs2) pc += imm 	branch
-- bgeu 	Branch Greater or Equal Unsigned 	bgeu rs1, rs2, imm 	if(rs1 ≥ rs2) pc += imm 	branch
-- bgez 	Branch Greater or Equal Zero (p) 	bgez rs1, imm 	if(rs1 ≥ 0) pc += imm 	branch
-```
+## Academic Context
 
-You can use a label in place of a branch immediate, for example: beq t0, t1, label_name
-```
-Set
-Instr 	Description 	Use 	Result 	Guide
-- slt 	Set Less Than 	slt rd, rs1, rs2 	rd = (rs1 < rs2) 	set
-- slti 	Set Less Than Immediate 	slti rd, rs1, imm 	rd = (rs1 < imm) 	set
-- sltu 	Set Less Than Unsigned 	sltu rd, rs1, rs2 	rd = (rs1 < rs2) 	set
-- sltiu 	Set Less Than Immediate Unsigned 	sltui rd, rs1, imm 	rd = (rs1 < imm) 	set
-- seqz 	Set Equal Zero (p) 	seqz rd, rs1 	rd = (rs1 == 0) 	set
-- snez 	Set Not Equal Zero (p) 	snez rd, rs1 	rd = (rs1 ≠ 0) 	set
-- sltz 	Set Less Than Zero (p) 	sltz rd, rs1 	rd = (rs < 0) 	set
-- sgtz 	Set Greater Than Zero (p) 	sgtz rd, rs1 	rd = (rs1 > 0) 	set
-```
+This repository was developed as part of the **Introdução à Arquitetura de Computadores (IAC)** course.
+The project was designed to combine concepts from computer architecture and Assembly programming with a modern computational workload: a simplified Transformer.
 
-```
-Counters
-Instr 	Description 	Use 	Result 	Guide
-- rdcycle 	CPU Cycle Count (p) 	rdcycle rd 	rd = csr_cycle[31:0] 	not yet avail
-- rdcycleh 	CPU Cycle Count High (p) 	rdcycleh rd 	rd = csr_cycle[63:32] 	not yet avail
-- rdtime 	Current Time (p) 	rdtime rd 	rd = csr_time[31:0] 	not yet avail
-- rdtimeh 	Current Time High (p) 	rdtimeh rd 	rd = csr_time[63:32] 	not yet avail
-- rdinstret 	CPU Instructions Retired (p) 	rdinstret rd 	rd = csr_instret[31:0] 	not yet avail
-- rdinstreth 	CPU Instructions Retired High (p) 	rdinstreth rd 	rd = csr_instret[63:32] 	not yet avail
-```
+Rather than treating AI as a purely high-level software problem, the project investigates it from the perspective of **instruction execution and computer architecture**.
 
-The counter instructions require the Zicntr and Zicsr extensions but were originally part of the base instruction set.
-```
-Misc Instructions
-Instr 	Description 	Use 	Result 	Guide
-- ebreak 	Environment Break (Debugger Call) 	ebreak 	- 	not yet avail
-- ecall 	Environment Call (OS Function) 	ecall 	- 	not yet avail
-- fence 	I/O Ordering 	fence 	- 	not yet avail
-- mv 	Copy Register (p) 	mv rd, rs1 	rd = rs1 	arithmetic
-- nop 	No Operation (p) 	nop 	- 	arithmetic
-```
+## Notes
 
-The fence instruction requires the Zifencei extension but was originally part of the base instruction set.
-```
-Instruction Terminology
+This is an **educational implementation** and is intentionally much smaller and simpler than real-world Transformer architectures.
+It is intended to demonstrate the underlying computational concepts and the process of translating them into low-level RISC-V Assembly.
 
-    imm - immediate value (normally sign extended)
-    mem - memory
-    (p) - pseudoinstruction
-    pc - program counter
-    pc+4 - next instruction on RV32
-    ra - return address register (x1)
-    rd - destination register
-    rs1 - first source register
-    rs2 - second source register
-    symbol - symbol (may be label in asm)
-```
+## Authors
 
-RV32 ABI Registers
-```
-ABI Name 	Register 	Description 	Preserved
-- zero 	x0 	always 0 (zero) 	n/a
-- ra 	x1 	return address 	no
-- sp 	x2 	stack pointer 	yes
-- gp 	x3 	global pointer* 	n/a
-- tp 	x4 	thread pointer* 	n/a
-- t0 	x5 	temporary 	no
-- t1 	x6 	temporary 	no
-- t2 	x7 	temporary 	no
-- fp (s0) 	x8 	frame pointer† 	yes
-- s1 	x9 	saved register 	yes
-- a0 	x10 	function argument‡ 	no
-- a1 	x11 	function argument‡ 	no
-- a2 	x12 	function argument 	no
-- a3 	x13 	function argument 	no
-- a4 	x14 	function argument 	no
-- a5 	x15 	function argument 	no
-- a6 	x16 	function argument 	no
-- a7 	x17 	function argument 	no
-- s2 	x18 	saved register 	yes
-- s3 	x19 	saved register 	yes
-- s4 	x20 	saved register 	yes
-- s5 	x21 	saved register 	yes
-- s6 	x22 	saved register 	yes
-- s7 	x23 	saved register 	yes
-- s8 	x24 	saved register 	yes
-- s9 	x25 	saved register 	yes
-- s10 	x26 	saved register 	yes
-- s11 	x27 	saved register 	yes
-- t3 	x28 	temporary 	no
-- t4 	x29 	temporary 	no
-- t5 	x30 	temporary 	no
-- t6 	x31 	temporary 	no
+**Miguel Afonso**
+**Guilherme Morais**
+**Guilherme Rocha**
 
-*Let the compiler/linker use the global gp and thread tp pointers; ignore them in your own code.
-†The frame pointer fp supports local variables but can be used as a regular saved register.
-‡Argument registers a0 and a1 also handle the function return value.
-RISC-V Concepts
-
-Important RISC-V concepts, briefly explained.
-
-    Data Sizes (word, half, byte)
-    Extensions (customising RISC-V cores)
-    Load-Store Architecture
-    Preserved Registers (function calls)
-    Pseudoinstructions
-    Sign Extension
-    Stack
-    Zero Register
+Computer Science Students
