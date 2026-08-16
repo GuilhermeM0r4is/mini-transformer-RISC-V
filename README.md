@@ -106,8 +106,8 @@ It is intended to demonstrate the underlying computational concepts and the proc
 
 ## Authors
 
-**Miguel Afonso**
-**Guilherme Morais**
+**Miguel Afonso** | 
+**Guilherme Morais** | 
 **Guilherme Rocha**
 
 Computer Science Students
