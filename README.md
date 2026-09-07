@@ -1,4 +1,4 @@
-# IAC — RISC-V Mini Transformer
+# IAC — RISC-V Mini Transformer 
 
 A university project focused on implementing the core concepts of a **mini Transformer model using RISC-V Assembly**.
 
